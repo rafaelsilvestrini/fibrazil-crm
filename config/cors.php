@@ -23,6 +23,7 @@ return [
      */
     'paths' => [
         'admin/web-forms/forms/*',
+        'api/*',
     ],
 
     /*
