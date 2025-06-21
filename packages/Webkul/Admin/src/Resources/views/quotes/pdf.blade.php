@@ -4,10 +4,13 @@
 <head>
     <!-- meta tags -->
     <meta http-equiv="Cache-control" content="no-cache">
-
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 
     @php
+        $quoteId = str_pad($quote->id, 8, '0', STR_PAD_LEFT);
+        $formattedQuoteId = 'FT-' . $quoteId . '-2025';
+        $documentTitle = str_contains($quote->subject, '[FACTURA]') ? 'ID de Factura' : 'ID de Cotización';
+
         if ($locale == 'en') {
             $fontFamily = [
                 'regular' => 'DejaVu Sans',
@@ -156,26 +159,56 @@
     <div class="page">
         <!-- Header -->
         <div class="page-header">
-                <img class="h-10 w-[110px]" src="https://static.wixstatic.com/media/7b0ca6_6f2f40dc23de42738a350641e5ac43bf~mv2.jpg/v1/fill/w_568,h_354,al_c,q_80,usm_0.66_1.00_0.01,enc_avif,quality_auto/7b0ca6_6f2f40dc23de42738a350641e5ac43bf~mv2.jpg" alt="wrdg" />
-
-
+            <img class="h-10 w-[110px]" src="https://fibrazil.es/assets/images/logo/logo.png" alt="Logo" />
         </div>
 
         <div class="page-content">
-            <!-- Invoice Information -->
-            <table class="{{ app()->getLocale() }}">
+
+            <!--Info client -->
+            <table class="{{ $locale }}">
+                <thead>
+                    <tr>
+                        @if ($quote->billing_address)
+                            <th style="width: 100%;">
+                                <b>
+                                    @lang('admin::app.quotes.index.pdf.data-enterprise')
+                                </b>
+                            </th>
+                        @endif
+                    </tr>
+                </thead>
+
                 <tbody>
                     <tr>
-                        <td style="width: 50%; padding: 2px 18px;border:none;">
-                            <b>
-                                @lang('admin::app.quotes.index.pdf.quote-id'):
-                            </b>
+                        @if ($quote->billing_address)
+                            <td style="width: 100%">
 
-                            <span>
-                                #{{ $quote->id }}
-                            </span>
-                        </td>
+                                <div> <b>{{$quote->enterprise->company_name}}</b></div>
+                                <div> <b>N.I.F:</b> {{$quote->enterprise->nif}}</div>
+                                <div> <b>Correo:</b> {{$quote->enterprise->email}}</div>
+                                <div> {{$quote->enterprise->street_address}}</div>
+                                <div> {{$quote->enterprise->postal_code}} {{$quote->enterprise->city}} {{$quote->enterprise->country}}</div>
 
+                            </td>
+                        @endif
+                    </tr>
+                </tbody>
+            </table>
+            <!-- Invoice Information -->
+            <table class="{{ app()->getLocale() }}">
+                <thead>
+                    <tr>
+                        @if ($quote->billing_address)
+                            <th style="width: 100%;">
+                                <b>
+                                    @lang('admin::app.quotes.index.pdf.data-recepit')
+                                </b>
+                            </th>
+                        @endif
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
                         <td style="width: 50%; padding: 2px 18px;border:none;">
                             <b>
                                 @lang('admin::app.quotes.index.pdf.person'):
@@ -186,28 +219,43 @@
                             </span>
                         </td>
                     </tr>
-
                     <tr>
                         <td style="width: 50%; padding: 2px 18px;border:none;">
                             <b>
-                                @lang('admin::app.quotes.index.pdf.sales-person'):
+                                @lang('admin::app.quotes.index.pdf.nif'):
                             </b>
 
-                            <span>
-                                {{ $quote->user->name }}
-                            </span>
-                        </td>
-
-                        <td style="width: 50%; padding: 2px 18px;border:none;">
-                            <b>
-                                @lang('admin::app.quotes.index.pdf.subject'):
-                            </b>
-
-                            <span>
-                                {{ $quote->subject }}
+                            <span> 
+                                {{ $quote->person->nif }}
                             </span>
                         </td>
                     </tr>
+                    <tr>
+                        <td style="width: 50%; padding: 2px 18px;border:none;">
+                            <b>
+                                Id:
+                            </b>
+
+                            <span>
+                                {{ $quote->person->id }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+
+                        <td style="width: 50%; padding: 2px 18px;border:none;">
+                            <b>
+                                Factura:
+                            </b>
+
+                            <span>
+                                {{ $formattedQuoteId }}
+                            </span>
+                        </td>
+
+
+                    </tr>
+
 
                     <tr>
                         <td style="width: 50%; padding: 2px 18px;border:none;">
@@ -220,7 +268,7 @@
                             </span>
                         </td>
 
-                        <td style="width: 50%; padding: 2px 18px;border:none;">
+                        {{--        <td style="width: 50%; padding: 2px 18px;border:none;">
                             <b>
                                 @lang('admin::app.quotes.index.pdf.sales-person'):
                             </b>
@@ -228,13 +276,13 @@
                             <span>
                                 {{ $quote->user->name }}
                             </span>
-                        </td>
+                        </td> --}}
                     </tr>
 
                     <tr>
                         <td style="width: 50%; padding: 2px 18px;border:none;">
                             <b>
-                                @lang('admin::app.quotes.index.pdf.expired-at'):
+                                @lang('admin::app.quotes.index.pdf.expired-at')
                             </b>
 
                             <span>
@@ -245,22 +293,14 @@
                 </tbody>
             </table>
 
-            <!-- Billing & Shipping Address -->
+            <!-- Billing Address (Shipping Address Removed) -->
             <table class="{{ $locale }}">
                 <thead>
                     <tr>
                         @if ($quote->billing_address)
-                            <th style="width: 50%;">
+                            <th style="width: 100%;">
                                 <b>
                                     @lang('admin::app.quotes.index.pdf.billing-address')
-                                </b>
-                            </th>
-                        @endif
-
-                        @if ($quote->shipping_address)
-                            <th style="width: 50%">
-                                <b>
-                                    @lang('admin::app.quotes.index.pdf.shipping-address')
                                 </b>
                             </th>
                         @endif
@@ -270,7 +310,7 @@
                 <tbody>
                     <tr>
                         @if ($quote->billing_address)
-                            <td style="width: 50%">
+                            <td style="width: 100%">
                                 <div>{{ $quote->billing_address['address'] ?? '' }}</div>
 
                                 <div>
@@ -282,18 +322,29 @@
                                 <div>{{ core()->country_name($quote->billing_address['country'] ?? '') }}</div>
                             </td>
                         @endif
+                    </tr>
+                </tbody>
+            </table>
 
-                        @if ($quote->shipping_address)
-                            <td style="width: 50%">
-                                <div>{{ $quote->shipping_address['address'] ?? '' }}</div>
+            <!-- Billing Address (Shipping Address Removed) -->
+            <table class="{{ $locale }}">
+                <thead>
+                    <tr>
+                        @if ($quote->billing_address)
+                            <th style="width: 100%;">
+                                <b>
+                                    @lang('admin::app.quotes.index.pdf.type-payment')
+                                </b>
+                            </th>
+                        @endif
+                    </tr>
+                </thead>
 
-                                <div>
-                                    {{ $quote->shipping_address['postcode'] ?? ('' . ' ' . $quote->shipping_address['city'] ?? '') }}
-                                </div>
-
-                                <div>{{ $quote->shipping_address['state'] ?? '' }}</div>
-
-                                <div>{{ core()->country_name($quote->shipping_address['country'] ?? '') }}</div>
+                <tbody>
+                    <tr>
+                        @if ($quote->billing_address)
+                            <td style="width: 100%">
+                                <div>{{$quote->person->method_payment}}</div>
                             </td>
                         @endif
                     </tr>
@@ -329,9 +380,6 @@
                                 @lang('admin::app.quotes.index.pdf.discount')
                             </th>
 
-                            <th>
-                                @lang('admin::app.quotes.index.pdf.tax')
-                            </th>
 
                             <th>
                                 @lang('admin::app.quotes.index.pdf.grand-total')
@@ -356,7 +404,6 @@
 
                                 <td class="text-center">{!! core()->formatBasePrice($item->discount_amount, true) !!}</td>
 
-                                <td class="text-center">{!! core()->formatBasePrice($item->tax_amount, true) !!}</td>
 
                                 <td class="text-center">{!! core()->formatBasePrice($item->total + $item->tax_amount - $item->discount_amount, true) !!}</td>
                             </tr>

@@ -2,22 +2,23 @@
 
 namespace Webkul\Admin\Http\Controllers\Quote;
 
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Event;
 use Illuminate\View\View;
-use Prettus\Repository\Criteria\RequestCriteria;
-use Symfony\Component\HttpFoundation\StreamedResponse;
-use Webkul\Admin\DataGrids\Quote\QuoteDataGrid;
+use Illuminate\Http\Response;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
+use Webkul\Core\Traits\PDFHandler;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Event;
+use Webkul\Lead\Repositories\LeadRepository;
 use Webkul\Admin\Http\Controllers\Controller;
 use Webkul\Admin\Http\Requests\AttributeForm;
-use Webkul\Admin\Http\Requests\MassDestroyRequest;
 use Webkul\Admin\Http\Resources\QuoteResource;
-use Webkul\Core\Traits\PDFHandler;
-use Webkul\Lead\Repositories\LeadRepository;
 use Webkul\Quote\Repositories\QuoteRepository;
+use Webkul\Admin\DataGrids\Quote\QuoteDataGrid;
+use Prettus\Repository\Criteria\RequestCriteria;
+use Webkul\Admin\Http\Requests\MassDestroyRequest;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class QuoteController extends Controller
 {
@@ -40,6 +41,13 @@ class QuoteController extends Controller
      */
     public function index(): View|JsonResponse
     {
+        $quotes = $this->quoteRepository->all();
+
+        foreach ($quotes as $quote) {
+            $this->calculateAdjustmentAndTotal($quote);
+            $quote->save();
+        }
+
         if (request()->ajax()) {
             return datagrid(QuoteDataGrid::class)->process();
         }
@@ -189,10 +197,69 @@ class QuoteController extends Controller
     public function print($id): Response|StreamedResponse
     {
         $quote = $this->quoteRepository->findOrFail($id);
+        /* ---------------------------Nif-------------------------------------- */
+        $id = DB::table('attributes')
+            ->where('code', 'nif')
+            ->where('entity_type', 'persons')
+            ->value('id');
+
+
+        $nif = DB::table('attribute_values')
+            ->where('attribute_id', $id)
+            ->where('entity_id', $quote->person->id)
+            ->value('text_value');
+
+        $quote->person->nif =  $nif ?? null;
+        /* ---------------------------billing address-------------------------------------- */
+        $billing_address_id  = DB::table('attributes')
+            ->where('code', 'street_person')
+            ->where('entity_type', 'persons')
+            ->value('id');
+
+        $billing_address_json = DB::table('attribute_values')
+            ->where('attribute_id', $billing_address_id)
+            ->where('entity_id', $quote->person->id)
+            ->value('json_value');
+
+        $billing_address_json =   json_decode($billing_address_json, true);
+
+        if ($billing_address_json !== null) {
+            $quote->billing_address = $billing_address_json;
+        }
+        /* ---------------------------Enterprise-------------------------------------- */
+        $enterprise = DB::table('enterprise')->first();
+        $quote->enterprise = $enterprise;
+        /* ---------------------------Method Payment-------------------------------------- */
+
+        $method_id  = DB::table('attributes')
+            ->where('code', 'method_payment_persons')
+            ->where('entity_type', 'persons')
+            ->value('id');
+
+        $method_id_values = DB::table('attribute_values')
+            ->where('attribute_id', $method_id)
+            ->where('entity_id', $quote->person->id)
+            ->value('integer_value');
+
+        $method_values = DB::table('attribute_options')
+            ->where('attribute_id', $method_id)
+            ->where('id', $method_id_values)
+            ->value('name');
+
+        $quote->person->method_payment =  $method_values ?? null;
 
         return $this->downloadPDF(
             view('admin::quotes.pdf', compact('quote'))->render(),
-            'Quote_'.$quote->subject.'_'.$quote->created_at->format('d-m-Y')
+            'Quote_' . $quote->subject . '_' . $quote->created_at->format('d-m-Y')
         );
+    }
+
+    protected function calculateAdjustmentAndTotal($quote)
+    {
+        $taxAmount = $quote->sub_total * 0.21;
+
+        $quote->tax_amount = $taxAmount;
+
+        $quote->grand_total = ($quote->sub_total + $taxAmount + $quote->adjustment_amount) -  ($quote->discount_amount);
     }
 }
